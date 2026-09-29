@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model City {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  province  String
+  bboxMinLat Float   @map("bbox_min_lat")
+  bboxMaxLat Float   @map("bbox_max_lat")
+  bboxMinLng Float   @map("bbox_min_lng")
+  bboxMaxLng Float   @map("bbox_max_lng")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  censusTracts CensusTract[]
+  placeCaches  PlaceCache[]
+  osmCaches    OsmCache[]
+
+  @@map("cities")
+}
+
+model Category {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  googleTypes      String[] @map("google_types")
+  defaultRadiusM   Int      @default(500) @map("default_radius_m")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  scoringConfigs ScoringConfig[]
+  evaluations    Evaluation[]
+
+  @@map("categories")
+}
+
+model CensusTract {
+  id                  String   @id @default(cuid())
+  cityId              String   @map("city_id")
+  indecCode           String   @map("indec_code")
+  name                String?
+  geometrySimplified  Json     @map("geometry_simplified")
+  population          Int      @default(0)
+  areaKm2             Float    @default(1) @map("area_km2")
+  socioeconomicIndex  Float    @default(0.5) @map("socioeconomic_index")
+  ageBands            Json     @default("{}") @map("age_bands")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([cityId, indecCode])
+  @@index([cityId])
+  @@map("census_tracts")
+}
+
+model PlaceCache {
+  id               String   @id @default(cuid())
+  googlePlaceId    String   @unique @map("google_place_id")
+  cityId           String   @map("city_id")
+  categorySlug     String   @map("category_slug")
+  gridCell         String   @map("grid_cell")
+  name             String
+  lat              Float
+  lng              Float
+  rating           Float?
+  reviewCount      Int      @default(0) @map("review_count")
+  types            String[] @default([])
+  competitionType  String   @default("direct") @map("competition_type")
+  fetchedAt        DateTime @default(now()) @map("fetched_at")
+  expiresAt        DateTime @map("expires_at")
+
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@index([cityId, categorySlug, gridCell])
+  @@index([expiresAt])
+  @@map("place_caches")
+}
+
+model GeocodeCache {
+  id                String   @id @default(cuid())
+  addressNormalized String   @unique @map("address_normalized")
+  formattedAddress  String   @map("formatted_address")
+  lat               Float
+  lng               Float
+  fetchedAt         DateTime @default(now()) @map("fetched_at")
+  expiresAt         DateTime @map("expires_at")
+
+  @@map("geocode_caches")
+}
+
+model OsmCache {
+  id        String   @id @default(cuid())
+  cityId    String   @map("city_id")
+  gridCell  String   @map("grid_cell")
+  payload   Json
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+  expiresAt DateTime @map("expires_at")
+
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([cityId, gridCell])
+  @@index([expiresAt])
+  @@map("osm_caches")
+}
+
+model ApiUsageDaily {
+  id        String   @id @default(cuid())
+  dateKey   String   @unique @map("date_key")
+  placesCalls Int    @default(0) @map("places_calls")
+  geocodeCalls Int   @default(0) @map("geocode_calls")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("api_usage_daily")
+}
+
+model ScoringConfig {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  version    Int
+  isActive   Boolean  @default(false) @map("is_active")
+  weights    Json
+  thresholds Json
+  radiiM     Json     @map("radii_m")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  evaluations Evaluation[]
+
+  @@unique([categoryId, version])
+  @@index([categoryId, isActive])
+  @@map("scoring_configs")
+}
+
+model Evaluation {
+  id                  String   @id @default(cuid())
+  categoryId          String   @map("category_id")
+  scoringConfigId     String   @map("scoring_config_id")
+  addressInput        String   @map("address_input")
+  formattedAddress    String?  @map("formatted_address")
+  lat                 Float
+  lng                 Float
+  scoreTotal          Float    @map("score_total")
+  scoreDemand         Float?   @map("score_demand")
+  scoreCompetition    Float?   @map("score_competition")
+  scoreAccessibility  Float?   @map("score_accessibility")
+  rawInputs           Json     @map("raw_inputs")
+  warnings            String[] @default([])
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  category      Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  scoringConfig ScoringConfig      @relation(fields: [scoringConfigId], references: [id], onDelete: Cascade)
+  factors       EvaluationFactor[]
+
+  @@index([createdAt])
+  @@map("evaluations")
+}
+
+model EvaluationFactor {
+  id           String @id @default(cuid())
+  evaluationId String @map("evaluation_id")
+  pillar       String
+  key          String
+  value        Float
+  contribution Float
+  note         String
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@index([evaluationId])
+  @@map("evaluation_factors")
+}

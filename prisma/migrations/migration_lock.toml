@@ -1,0 +1,4 @@
+# This file should be part of a Prisma Migrate deployment.
+# Learn more: https://pris.ly/d/migrate-deployment
+
+provider = "postgresql"

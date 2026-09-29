@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mejor Ubicación
 
-## Getting Started
+MVP para evaluar viabilidad de **cafeterías** en **Concepción del Uruguay** (Entre Ríos).
 
-First, run the development server:
+Stack: Next.js + Prisma + PostgreSQL, todo vía **Docker Compose**.
+
+## Requisitos
+
+- Docker Desktop
+
+## Arranque
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
+docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App: http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Por defecto `USE_MOCK_PROVIDERS=true` (no necesita Google API key). Para datos reales:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Seteá `GOOGLE_MAPS_API_KEY` en `.env`
+2. `USE_MOCK_PROVIDERS=false`
+3. `docker compose up --build`
 
-## Learn More
+## Comandos útiles (dentro del contenedor)
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+docker compose exec app npx prisma studio
+docker compose exec app npm run calibrate
+docker compose exec app npm run import-census
+docker compose exec app npm run validate
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Calibración HTTP:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+curl -X POST http://localhost:3000/api/calibrate \
+  -H "x-calibrate-secret: dev-calibrate-secret"
+```
 
-## Deploy on Vercel
+## Qué incluye el MVP
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Score 0–100 + desglose demanda / competencia / accesibilidad
+- Geocoding cacheado + bbox CdU
+- Places cache + budget diario
+- Radios censales (seed sintético + import JSON)
+- OSM Overpass (o mock) para accesibilidad
+- Calibración de pesos/umbrales desde datos de la ciudad
