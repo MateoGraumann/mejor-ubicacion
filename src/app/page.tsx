@@ -2,8 +2,8 @@ import { EvaluateClient } from "@/components/EvaluateClient";
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col px-4 py-10 sm:px-6 sm:py-16">
-      <div className="mx-auto w-full max-w-3xl">
+    <main className="flex flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-6xl">
         <p className="font-[family-name:var(--font-display)] text-4xl font-semibold tracking-tight text-stone-900 sm:text-5xl">
           Mejor Ubicación
         </p>
@@ -16,7 +16,7 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="mt-10">
+      <div className="mt-5">
         <EvaluateClient />
       </div>
     </main>

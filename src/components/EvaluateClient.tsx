@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { AddressForm } from "@/components/AddressForm";
 import { ScoreCard } from "@/components/ScoreCard";
-import { FactorList } from "@/components/FactorList";
 import { CompetitorList } from "@/components/CompetitorList";
+import { ZoneKpis } from "@/components/ZoneKpis";
 
 type EvaluateResult = {
   evaluationId: string;
@@ -68,41 +68,55 @@ export function EvaluateClient() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <AddressForm
-        address={address}
-        onAddressChange={setAddress}
-        onSubmit={onSubmit}
-        loading={loading}
-      />
+    <div className="mx-auto w-full max-w-6xl">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:gap-x-3 lg:gap-y-[6px]">
+        <AddressForm
+          address={address}
+          onAddressChange={setAddress}
+          onSubmit={onSubmit}
+          loading={loading}
+        />
 
-      {error && (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          {error}
-        </p>
-      )}
+        {result ? (
+          <ZoneKpis factors={result.factors} />
+        ) : (
+          <div className="hidden lg:block" aria-hidden="true" />
+        )}
 
-      {result && (
-        <>
-          <p className="text-sm text-stone-600">
-            {result.formattedAddress ?? result.address}
-            <span className="text-stone-400">
-              {" "}
-              · {result.lat.toFixed(5)}, {result.lng.toFixed(5)}
-            </span>
+        {error && (
+          <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 lg:col-span-2">
+            {error}
           </p>
-          <ScoreCard
-            scoreTotal={result.scoreTotal}
-            pillars={result.pillars}
-            version={result.scoringConfigVersion}
-          />
-          <CompetitorList
-            competitors={result.competitors ?? []}
-            radiusM={result.competitionRadiusM ?? 500}
-          />
-          <FactorList factors={result.factors} warnings={result.warnings} />
-        </>
-      )}
+        )}
+
+        {result && (
+          <>
+            <ScoreCard
+              scoreTotal={result.scoreTotal}
+              pillars={result.pillars}
+              version={result.scoringConfigVersion}
+            />
+            <CompetitorList
+              competitors={result.competitors ?? []}
+              radiusM={result.competitionRadiusM ?? 500}
+            />
+            <div className="flex min-w-0 flex-col gap-1 px-1 text-xs text-stone-500 lg:col-span-2 lg:flex-row lg:items-center lg:justify-between">
+              <p className="break-words lg:max-w-[52%]">
+                {result.formattedAddress ?? result.address}
+                <span className="text-stone-400">
+                  {" "}
+                  · {result.lat.toFixed(5)}, {result.lng.toFixed(5)}
+                </span>
+              </p>
+              {result.warnings.length > 0 && (
+                <p className="break-words text-amber-700 lg:max-w-[45%] lg:text-right">
+                  {result.warnings.join(" · ")}
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -45,19 +45,19 @@ export function scoreDemand(
         key: "density",
         value: census.density,
         contribution: densityScore,
-        note: `Densidad ~${Math.round(census.density)} hab/km² en ${census.name ?? census.indecCode}`,
+        note: `Zona ${census.name ?? census.indecCode}: ~${Math.round(census.density)} hab/km²`,
       },
       {
         key: "nse",
         value: census.socioeconomicIndex,
         contribution: nseScore,
-        note: `Índice socioeconómico ${(census.socioeconomicIndex * 100).toFixed(0)}/100`,
+        note: `Nivel socioeconómico relativo ${(census.socioeconomicIndex * 100).toFixed(0)}/100`,
       },
       {
         key: "age_20_45",
         value: census.age20_45,
         contribution: ageScore,
-        note: `${Math.round(census.age20_45 * 100)}% población 20–45 años`,
+        note: `${Math.round(census.age20_45 * 100)}% de la población tiene entre 20 y 45 años (público habitual de cafetería)`,
       },
     ],
   };

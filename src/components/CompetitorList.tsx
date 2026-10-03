@@ -13,73 +13,51 @@ export function CompetitorList({
   competitors: Competitor[];
   radiusM: number;
 }) {
-  const direct = competitors.filter((c) => c.competitionType === "direct");
-  const indirect = competitors.filter((c) => c.competitionType === "indirect");
+  const directCompetitors = competitors.filter(
+    (competitor) => competitor.competitionType === "direct",
+  );
 
   return (
-    <section className="rounded-2xl border border-stone-200 bg-white/90 p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-stone-900">
-        Competidores en {radiusM} m
-      </h2>
-      <p className="mt-1 text-sm text-stone-500">
-        {competitors.length} locales encontrados (datos SerpAPI / Google Maps)
-      </p>
+    <section className="h-full rounded-2xl border border-stone-200 bg-white/90 p-4 shadow-sm">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-stone-900">
+            Competencia directa
+          </h2>
+          <p className="text-xs text-stone-500">
+            Cafeterías, cafés o panaderías en {radiusM} m
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700">
+          {directCompetitors.length}{" "}
+          {directCompetitors.length === 1 ? "local" : "locales"}
+        </span>
+      </div>
 
-      {competitors.length === 0 ? (
-        <p className="mt-4 text-sm text-stone-600">
-          No se encontraron competidores en este radio.
+      {directCompetitors.length === 0 ? (
+        <p className="mt-4 rounded-xl bg-stone-50 px-4 py-3 text-sm text-stone-600">
+          No se encontraron competidores directos en este radio.
         </p>
       ) : (
-        <div className="mt-4 space-y-5">
-          <CompetitorGroup title="Directos (cafetería / café / panadería)" items={direct} />
-          <CompetitorGroup title="Indirectos (resto / bar)" items={indirect} />
-        </div>
-      )}
-    </section>
-  );
-}
-
-function CompetitorGroup({
-  title,
-  items,
-}: {
-  title: string;
-  items: Competitor[];
-}) {
-  if (items.length === 0) {
-    return (
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-          {title}
-        </p>
-        <p className="mt-1 text-sm text-stone-500">Ninguno</p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-        {title} · {items.length}
-      </p>
-      <ul className="mt-2 divide-y divide-stone-100 rounded-xl border border-stone-100 bg-stone-50">
-        {items.map((c) => (
-          <li
-            key={`${c.name}-${c.distanceM}`}
-            className="flex items-start justify-between gap-3 px-4 py-3"
-          >
-            <div>
-              <p className="font-medium text-stone-900">{c.name}</p>
-              <p className="text-sm text-stone-500">
-                {Math.round(c.distanceM)} m
-                {c.rating != null
-                  ? ` · ★ ${c.rating.toFixed(1)} (${c.reviewCount} reseñas)`
+        <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {directCompetitors.map((competitor) => (
+            <li
+              key={`${competitor.name}-${competitor.distanceM}`}
+              className="min-w-0 rounded-xl border border-stone-100 bg-stone-50 px-3 py-2"
+            >
+              <p className="truncate text-sm font-medium text-stone-900">
+                {competitor.name}
+              </p>
+              <p className="truncate text-xs text-stone-500">
+                {Math.round(competitor.distanceM)} m
+                {competitor.rating != null
+                  ? ` · ★ ${competitor.rating.toFixed(1)} (${competitor.reviewCount} reseñas)`
                   : ""}
               </p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
