@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import { gridCellKey, haversineMeters, type LatLng } from "@/lib/geo";
-import { useMockProviders } from "@/lib/cache/budget";
 import type { AccessibilitySnapshot } from "@/lib/scoring/types";
 
 type OsmPayload = {
@@ -13,27 +12,6 @@ type OsmPayload = {
     lng: number;
   }>;
 };
-
-const MOCK_POIS: OsmPayload["complements"] = [
-  { name: "Plaza Ramírez", kind: "park", lat: -32.4838, lng: -58.2325 },
-  { name: "Banco Nación", kind: "bank", lat: -32.4832, lng: -58.231 },
-  { name: "Escuela Normal", kind: "school", lat: -32.482, lng: -58.235 },
-  { name: "Municipalidad", kind: "office", lat: -32.4845, lng: -58.2305 },
-  { name: "Hospital", kind: "hospital", lat: -32.461, lng: -58.229 },
-  { name: "Terminal", kind: "bus_station", lat: -32.49, lng: -58.24 },
-];
-
-function mockOsm(center: LatLng): OsmPayload {
-  const nearCoast = center.lng > -58.21;
-  const nearCenter =
-    Math.abs(center.lat + 32.483) < 0.008 &&
-    Math.abs(center.lng + 58.232) < 0.008;
-  return {
-    roadClass: nearCenter ? "primary" : nearCoast ? "secondary" : "residential",
-    isCorner: nearCenter || Math.round(center.lat * 1000) % 3 === 0,
-    complements: MOCK_POIS,
-  };
-}
 
 async function fetchOverpass(
   center: LatLng,
@@ -145,9 +123,7 @@ export async function getAccessibility(
     payload = cached.payload as OsmPayload;
   } else {
     try {
-      payload = useMockProviders()
-        ? mockOsm(center)
-        : await fetchOverpass(center, radiusM);
+      payload = await fetchOverpass(center, radiusM);
 
       await prisma.osmCache.upsert({
         where: { cityId_gridCell: { cityId, gridCell: cell } },

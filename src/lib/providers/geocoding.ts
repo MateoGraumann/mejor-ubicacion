@@ -8,7 +8,7 @@ export type GeocodeResult = {
   lng: number;
   formattedAddress: string;
   fromCache: boolean;
-  provider: "google" | "nominatim" | "cache" | "mock";
+  provider: "google" | "nominatim" | "cache";
 };
 
 const CITY_SUFFIX = "Concepción del Uruguay, Entre Ríos, Argentina";

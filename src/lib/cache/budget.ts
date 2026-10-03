@@ -9,7 +9,7 @@ export async function getPlacesBudgetRemaining(): Promise<{
   budget: number;
   remaining: number;
 }> {
-  const budget = Number(process.env.PLACES_DAILY_BUDGET ?? 100);
+  const budget = Number(process.env.SERPAPI_DAILY_BUDGET ?? process.env.PLACES_DAILY_BUDGET ?? 100);
   const row = await prisma.apiUsageDaily.findUnique({
     where: { dateKey: todayKey() },
   });
@@ -38,9 +38,4 @@ export async function recordGeocodeCalls(count = 1): Promise<void> {
     create: { dateKey, placesCalls: 0, geocodeCalls: count },
     update: { geocodeCalls: { increment: count } },
   });
-}
-
-export function useMockProviders(): boolean {
-  if (process.env.USE_MOCK_PROVIDERS === "true") return true;
-  return !process.env.GOOGLE_MAPS_API_KEY;
 }

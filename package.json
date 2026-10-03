@@ -14,7 +14,8 @@
     "calibrate": "tsx scripts/calibrate.ts",
     "import-census": "tsx scripts/import-census.ts",
     "validate": "tsx scripts/validate-addresses.ts",
-    "clear-geocode-cache": "tsx scripts/clear-geocode-cache.ts"
+    "clear-geocode-cache": "tsx scripts/clear-geocode-cache.ts",
+    "clear-places-cache": "tsx scripts/clear-places-cache.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

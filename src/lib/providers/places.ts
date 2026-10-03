@@ -1,10 +1,6 @@
 import { prisma } from "@/lib/db";
 import { gridCellKey, haversineMeters, type LatLng } from "@/lib/geo";
-import {
-  canCallPlaces,
-  recordPlacesCalls,
-  useMockProviders,
-} from "@/lib/cache/budget";
+import { canCallPlaces, recordPlacesCalls } from "@/lib/cache/budget";
 import type { CompetitorPlace } from "@/lib/scoring/types";
 
 type NearbyOptions = {
@@ -15,131 +11,103 @@ type NearbyOptions = {
   radiusM: number;
 };
 
-const MOCK_CAFES: Array<{
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  rating: number;
-  reviewCount: number;
-  competitionType: "direct" | "indirect";
-  types: string[];
-}> = [
-  {
-    id: "mock-cafe-1",
-    name: "Café del Puerto",
-    lat: -32.4825,
-    lng: -58.228,
-    rating: 4.5,
-    reviewCount: 120,
-    competitionType: "direct",
-    types: ["cafe"],
-  },
-  {
-    id: "mock-cafe-2",
-    name: "Panadería Urquiza",
-    lat: -32.484,
-    lng: -58.234,
-    rating: 4.1,
-    reviewCount: 85,
-    competitionType: "direct",
-    types: ["bakery", "cafe"],
-  },
-  {
-    id: "mock-cafe-3",
-    name: "Confitería Central",
-    lat: -32.483,
-    lng: -58.231,
-    rating: 4.3,
-    reviewCount: 210,
-    competitionType: "direct",
-    types: ["cafe"],
-  },
-  {
-    id: "mock-rest-1",
-    name: "Bar 9 de Julio",
-    lat: -32.485,
-    lng: -58.229,
-    rating: 3.9,
-    reviewCount: 60,
-    competitionType: "indirect",
-    types: ["restaurant", "bar"],
-  },
-  {
-    id: "mock-cafe-4",
-    name: "Espresso Norte",
-    lat: -32.462,
-    lng: -58.232,
-    rating: 4.0,
-    reviewCount: 40,
-    competitionType: "direct",
-    types: ["cafe"],
-  },
-  {
-    id: "mock-cafe-5",
-    name: "Café Costanera",
-    lat: -32.481,
-    lng: -58.198,
-    rating: 4.6,
-    reviewCount: 95,
-    competitionType: "direct",
-    types: ["cafe"],
-  },
+type SerpLocalResult = {
+  place_id?: string;
+  data_id?: string;
+  data_cid?: string;
+  title?: string;
+  rating?: number;
+  reviews?: number;
+  type?: string;
+  types?: string[];
+  type_id?: string;
+  type_ids?: string[];
+  gps_coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+};
+
+const DIRECT_TYPE_IDS = new Set([
+  "coffee_shop",
+  "cafe",
+  "bakery",
+  "coffee",
+  "cafeteria",
+]);
+
+const DIRECT_TYPE_KEYWORDS = [
+  "coffee",
+  "cafe",
+  "café",
+  "cafeteria",
+  "cafetería",
+  "bakery",
+  "panader",
+  "confiter",
 ];
 
 function classifyCompetition(
+  typeIds: string[],
   types: string[],
-  googleTypes: string[],
 ): "direct" | "indirect" {
-  if (types.some((t) => googleTypes.includes(t))) return "direct";
+  if (typeIds.some((t) => DIRECT_TYPE_IDS.has(t.toLowerCase()))) {
+    return "direct";
+  }
+  const joined = types.join(" ").toLowerCase();
+  if (DIRECT_TYPE_KEYWORDS.some((k) => joined.includes(k))) {
+    return "direct";
+  }
   return "indirect";
 }
 
-async function fetchGoogleNearby(
+function placeCacheId(result: SerpLocalResult): string {
+  return (
+    result.place_id ||
+    result.data_cid ||
+    result.data_id ||
+    `serp-${result.title ?? "unknown"}-${result.gps_coordinates?.latitude}-${result.gps_coordinates?.longitude}`
+  );
+}
+
+async function fetchSerpMapsSearch(
   center: LatLng,
   radiusM: number,
-  type: string,
-): Promise<
-  Array<{
-    place_id: string;
-    name: string;
-    geometry: { location: { lat: number; lng: number } };
-    rating?: number;
-    user_ratings_total?: number;
-    types?: string[];
-  }>
-> {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) throw new Error("GOOGLE_MAPS_API_KEY missing");
+  query: string,
+): Promise<SerpLocalResult[]> {
+  const apiKey = process.env.SERPAPI_API_KEY;
+  if (!apiKey) {
+    throw new Error("SERPAPI_API_KEY missing");
+  }
 
-  const url = new URL(
-    "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
-  );
-  url.searchParams.set("location", `${center.lat},${center.lng}`);
-  url.searchParams.set("radius", String(radiusM));
-  url.searchParams.set("type", type);
-  url.searchParams.set("key", key);
+  const mapHeightM = Math.max(radiusM * 2, 800);
+  const url = new URL("https://serpapi.com/search");
+  url.searchParams.set("engine", "google_maps");
+  url.searchParams.set("type", "search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("ll", `@${center.lat},${center.lng},${mapHeightM}m`);
+  url.searchParams.set("nearby", "true");
+  url.searchParams.set("hl", "es");
+  url.searchParams.set("gl", "ar");
+  url.searchParams.set("google_domain", "google.com.ar");
+  url.searchParams.set("api_key", apiKey);
 
   const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`Places Nearby HTTP ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`SerpAPI Google Maps HTTP ${res.status}`);
+  }
+
   const data = (await res.json()) as {
-    status: string;
-    results: Array<{
-      place_id: string;
-      name: string;
-      geometry: { location: { lat: number; lng: number } };
-      rating?: number;
-      user_ratings_total?: number;
-      types?: string[];
-    }>;
+    error?: string;
+    local_results?: SerpLocalResult[];
   };
 
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    throw new Error(`Places Nearby failed: ${data.status}`);
+  if (data.error) {
+    throw new Error(`SerpAPI error: ${data.error}`);
   }
 
   await recordPlacesCalls(1);
-  return data.results ?? [];
+  return data.local_results ?? [];
 }
 
 async function upsertPlaceCache(params: {
@@ -188,6 +156,48 @@ async function upsertPlaceCache(params: {
   });
 }
 
+async function cacheSerpResults(
+  options: NearbyOptions,
+  results: SerpLocalResult[],
+  forceType?: "direct" | "indirect",
+) {
+  for (const r of results) {
+    const coords = r.gps_coordinates;
+    if (!coords || !r.title) continue;
+
+    const types = r.types?.length
+      ? r.types
+      : r.type
+        ? [r.type]
+        : [];
+    const typeIds = r.type_ids?.length
+      ? r.type_ids
+      : r.type_id
+        ? [r.type_id]
+        : [];
+
+    const competitionType =
+      forceType ?? classifyCompetition(typeIds, types);
+
+    await upsertPlaceCache({
+      cityId: options.cityId,
+      categorySlug: options.categorySlug,
+      gridCell: gridCellKey({
+        lat: coords.latitude,
+        lng: coords.longitude,
+      }),
+      googlePlaceId: placeCacheId(r),
+      name: r.title,
+      lat: coords.latitude,
+      lng: coords.longitude,
+      rating: r.rating ?? null,
+      reviewCount: r.reviews ?? 0,
+      types: [...types, ...typeIds],
+      competitionType,
+    });
+  }
+}
+
 export type PlacesLookupResult = {
   places: CompetitorPlace[];
   fromCacheOnly: boolean;
@@ -214,90 +224,47 @@ export async function findCompetitors(
   let budgetExhausted = false;
   let fromCacheOnly = false;
 
+  // Direct + indirect search = up to 2 SerpAPI calls when cache miss
   if (freshInCell.length === 0) {
-    const allowed = await canCallPlaces(options.googleTypes.length || 1);
+    const allowed = await canCallPlaces(2);
 
-    if (useMockProviders()) {
-      for (const cafe of MOCK_CAFES) {
-        await upsertPlaceCache({
-          cityId: options.cityId,
-          categorySlug: options.categorySlug,
-          gridCell: gridCellKey({ lat: cafe.lat, lng: cafe.lng }),
-          googlePlaceId: cafe.id,
-          name: cafe.name,
-          lat: cafe.lat,
-          lng: cafe.lng,
-          rating: cafe.rating,
-          reviewCount: cafe.reviewCount,
-          types: cafe.types,
-          competitionType: cafe.competitionType,
-        });
-      }
-    } else if (!allowed) {
+    if (!allowed) {
       budgetExhausted = true;
       fromCacheOnly = true;
       warnings.push(
-        "Presupuesto diario de Google Places agotado; se usa solo cache.",
+        "Presupuesto diario de SerpAPI agotado; se usa solo cache.",
       );
     } else {
       try {
-        for (const type of options.googleTypes) {
-          const results = await fetchGoogleNearby(
-            options.center,
-            Math.max(options.radiusM, 800),
-            type,
-          );
-          for (const r of results) {
-            const types = r.types ?? [type];
-            await upsertPlaceCache({
-              cityId: options.cityId,
-              categorySlug: options.categorySlug,
-              gridCell: gridCellKey({
-                lat: r.geometry.location.lat,
-                lng: r.geometry.location.lng,
-              }),
-              googlePlaceId: r.place_id,
-              name: r.name,
-              lat: r.geometry.location.lat,
-              lng: r.geometry.location.lng,
-              rating: r.rating ?? null,
-              reviewCount: r.user_ratings_total ?? 0,
-              types,
-              competitionType: classifyCompetition(types, options.googleTypes),
-            });
-          }
-        }
-        // Also pull restaurants as indirect once
+        const directQuery =
+          options.categorySlug === "cafeteria"
+            ? "cafetería"
+            : options.googleTypes[0] ?? options.categorySlug;
+
+        const direct = await fetchSerpMapsSearch(
+          options.center,
+          Math.max(options.radiusM, 500),
+          directQuery,
+        );
+        await cacheSerpResults(options, direct, "direct");
+
         if (await canCallPlaces(1)) {
-          const indirect = await fetchGoogleNearby(
+          const indirect = await fetchSerpMapsSearch(
             options.center,
             options.radiusM,
             "restaurant",
           );
-          for (const r of indirect.slice(0, 20)) {
-            const types = r.types ?? ["restaurant"];
-            if (types.some((t) => options.googleTypes.includes(t))) continue;
-            await upsertPlaceCache({
-              cityId: options.cityId,
-              categorySlug: options.categorySlug,
-              gridCell: gridCellKey({
-                lat: r.geometry.location.lat,
-                lng: r.geometry.location.lng,
-              }),
-              googlePlaceId: r.place_id,
-              name: r.name,
-              lat: r.geometry.location.lat,
-              lng: r.geometry.location.lng,
-              rating: r.rating ?? null,
-              reviewCount: r.user_ratings_total ?? 0,
-              types,
-              competitionType: "indirect",
-            });
-          }
+          // Skip places already classified as direct cafes
+          const filtered = indirect.filter((r) => {
+            const types = r.types ?? (r.type ? [r.type] : []);
+            const typeIds = r.type_ids ?? (r.type_id ? [r.type_id] : []);
+            return classifyCompetition(typeIds, types) === "indirect";
+          });
+          await cacheSerpResults(options, filtered.slice(0, 20), "indirect");
         }
       } catch (e) {
         warnings.push(
-          `Places API error: ${e instanceof Error ? e.message : "unknown"}`,
+          `SerpAPI error: ${e instanceof Error ? e.message : "unknown"}`,
         );
         fromCacheOnly = true;
       }

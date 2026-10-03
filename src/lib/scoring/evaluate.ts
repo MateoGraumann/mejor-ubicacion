@@ -19,6 +19,14 @@ import type {
   ScoringWeights,
 } from "@/lib/scoring/types";
 
+export type EvaluateCompetitor = {
+  name: string;
+  competitionType: "direct" | "indirect";
+  distanceM: number;
+  rating: number | null;
+  reviewCount: number;
+};
+
 export type EvaluateResponse = {
   evaluationId: string;
   address: string;
@@ -39,6 +47,8 @@ export type EvaluateResponse = {
     contribution: number;
     note: string;
   }>;
+  competitors: EvaluateCompetitor[];
+  competitionRadiusM: number;
   warnings: string[];
   scoringConfigVersion: number;
 };
@@ -92,14 +102,23 @@ export async function evaluateAddress(
   const census = await findCensusTract(city.id, point);
   if (!census) warnings.push("Sin radio censal para el punto; demanda omitida.");
 
+  const competitionRadiusM = radii.competition ?? category.defaultRadiusM;
   const placesResult = await findCompetitors({
     cityId: city.id,
     categorySlug: category.slug,
     googleTypes: category.googleTypes,
     center: point,
-    radiusM: radii.competition ?? category.defaultRadiusM,
+    radiusM: competitionRadiusM,
   });
   warnings.push(...placesResult.warnings);
+
+  const competitors: EvaluateCompetitor[] = placesResult.places.map((p) => ({
+    name: p.name,
+    competitionType: p.competitionType,
+    distanceM: Math.round(p.distanceM),
+    rating: p.rating,
+    reviewCount: p.reviewCount,
+  }));
 
   const osmResult = await getAccessibility(
     city.id,
@@ -155,6 +174,8 @@ export async function evaluateAddress(
         geocodeProvider: geo.provider,
         census,
         placesCount: placesResult.places.length,
+        competitors,
+        competitionRadiusM,
         placesFromCacheOnly: placesResult.fromCacheOnly,
         budgetExhausted: placesResult.budgetExhausted,
         accessibility: osmResult.snapshot,
@@ -181,6 +202,8 @@ export async function evaluateAddress(
     },
     weights,
     factors,
+    competitors,
+    competitionRadiusM,
     warnings,
     scoringConfigVersion: config.version,
   };

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AddressForm } from "@/components/AddressForm";
 import { ScoreCard } from "@/components/ScoreCard";
 import { FactorList } from "@/components/FactorList";
+import { CompetitorList } from "@/components/CompetitorList";
 
 type EvaluateResult = {
   evaluationId: string;
@@ -24,6 +25,14 @@ type EvaluateResult = {
     contribution: number;
     note: string;
   }>;
+  competitors: Array<{
+    name: string;
+    competitionType: "direct" | "indirect";
+    distanceM: number;
+    rating: number | null;
+    reviewCount: number;
+  }>;
+  competitionRadiusM: number;
   warnings: string[];
   scoringConfigVersion: number;
 };
@@ -86,6 +95,10 @@ export function EvaluateClient() {
             scoreTotal={result.scoreTotal}
             pillars={result.pillars}
             version={result.scoringConfigVersion}
+          />
+          <CompetitorList
+            competitors={result.competitors ?? []}
+            radiusM={result.competitionRadiusM ?? 500}
           />
           <FactorList factors={result.factors} warnings={result.warnings} />
         </>

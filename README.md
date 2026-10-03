@@ -7,21 +7,17 @@ Stack: Next.js + Prisma + PostgreSQL, todo vía **Docker Compose**.
 ## Requisitos
 
 - Docker Desktop
+- API key de [SerpAPI](https://serpapi.com/) (Google Maps engine)
 
 ## Arranque
 
 ```bash
 cp .env.example .env
+# Completá SERPAPI_API_KEY en .env
 docker compose up --build
 ```
 
 App: http://localhost:3000
-
-Por defecto `USE_MOCK_PROVIDERS=true` (no necesita Google API key). Para datos reales:
-
-1. Seteá `GOOGLE_MAPS_API_KEY` en `.env`
-2. `USE_MOCK_PROVIDERS=false`
-3. `docker compose up --build`
 
 ## Comandos útiles (dentro del contenedor)
 
@@ -30,6 +26,7 @@ docker compose exec app npx prisma studio
 docker compose exec app npm run calibrate
 docker compose exec app npm run import-census
 docker compose exec app npm run validate
+docker compose exec app npm run clear-geocode-cache
 ```
 
 Calibración HTTP:
@@ -42,8 +39,8 @@ curl -X POST http://localhost:3000/api/calibrate \
 ## Qué incluye el MVP
 
 - Score 0–100 + desglose demanda / competencia / accesibilidad
-- Geocoding cacheado + bbox CdU
-- Places cache + budget diario
-- Radios censales (seed sintético + import JSON)
-- OSM Overpass (o mock) para accesibilidad
+- Geocoding real (Nominatim; Google opcional)
+- Competencia vía SerpAPI Google Maps + cache + budget diario
+- Radios censales (seed + import JSON)
+- OSM Overpass para accesibilidad
 - Calibración de pesos/umbrales desde datos de la ciudad
